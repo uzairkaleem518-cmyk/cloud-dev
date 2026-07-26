@@ -1,0 +1,29 @@
+{
+  "name": "forge-connect",
+  "displayName": "Forge — Cloud Dev Environments",
+  "description": "One-click Remote-SSH connect to your self-hosted Forge workspaces.",
+  "version": "0.1.0",
+  "engines": { "vscode": "^1.85.0" },
+  "categories": ["Other"],
+  "activationEvents": [],
+  "main": "./src/extension.js",
+  "contributes": {
+    "configuration": {
+      "title": "Forge",
+      "properties": {
+        "forge.backendUrl": {
+          "type": "string",
+          "default": "http://localhost:4000",
+          "description": "URL of your Forge backend API."
+        }
+      }
+    },
+    "commands": [
+      { "command": "forge.login", "title": "Forge: Sign In" },
+      { "command": "forge.connect", "title": "Forge: Connect to Workspace" },
+      { "command": "forge.signOut", "title": "Forge: Sign Out" }
+    ]
+  },
+  "scripts": {},
+  "dependencies": {}
+}

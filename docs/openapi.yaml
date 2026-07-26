@@ -1,0 +1,447 @@
+openapi: 3.0.0
+info:
+  title: Forge - Cloud Dev Environment API
+  version: 1.0.0
+  description: Self-hosted Codespaces alternative
+  contact:
+    name: Forge Team
+  license:
+    name: MIT
+
+servers:
+  - url: https://api.example.com
+    description: Production
+  - url: http://localhost:4000
+    description: Development
+
+paths:
+  /health:
+    get:
+      summary: Health check
+      operationId: getHealth
+      tags:
+        - System
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok:
+                    type: boolean
+
+  /api/auth/register:
+    post:
+      summary: Register new user
+      operationId: register
+      tags:
+        - Authentication
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - email
+                - password
+                - name
+              properties:
+                email:
+                  type: string
+                  format: email
+                password:
+                  type: string
+                  minLength: 8
+                  description: Must contain uppercase, lowercase, number, and symbol
+                name:
+                  type: string
+      responses:
+        '201':
+          description: User created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  token:
+                    type: string
+                  user:
+                    $ref: '#/components/schemas/User'
+        '400':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+        '409':
+          description: User already exists
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+
+  /api/auth/login:
+    post:
+      summary: Login user
+      operationId: login
+      tags:
+        - Authentication
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - email
+                - password
+              properties:
+                email:
+                  type: string
+                  format: email
+                password:
+                  type: string
+      responses:
+        '200':
+          description: Login successful
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  token:
+                    type: string
+                  user:
+                    $ref: '#/components/schemas/User'
+        '401':
+          description: Invalid credentials
+
+  /api/auth/password-reset-request:
+    post:
+      summary: Request password reset
+      operationId: resetPasswordRequest
+      tags:
+        - Authentication
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - email
+              properties:
+                email:
+                  type: string
+                  format: email
+      responses:
+        '200':
+          description: Reset link sent (or email not found - response is same for security)
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+
+  /api/auth/password-reset:
+    post:
+      summary: Reset password with token
+      operationId: resetPassword
+      tags:
+        - Authentication
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - token
+                - newPassword
+              properties:
+                token:
+                  type: string
+                newPassword:
+                  type: string
+                  minLength: 8
+      responses:
+        '200':
+          description: Password reset successful
+        '400':
+          description: Invalid or expired token
+
+  /api/workspaces:
+    get:
+      summary: List user's workspaces
+      operationId: listWorkspaces
+      tags:
+        - Workspaces
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: List of workspaces
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Workspace'
+        '401':
+          description: Unauthorized
+
+    post:
+      summary: Create new workspace
+      operationId: createWorkspace
+      tags:
+        - Workspaces
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - name
+                - image
+              properties:
+                name:
+                  type: string
+                  maxLength: 100
+                image:
+                  type: string
+                  enum: [cloud-dev-base:latest, cloud-dev-node:latest, cloud-dev-python:latest]
+                repoUrl:
+                  type: string
+                  format: uri
+      responses:
+        '201':
+          description: Workspace created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Workspace'
+        '400':
+          description: Validation error
+        '401':
+          description: Unauthorized
+
+  /api/workspaces/{id}:
+    get:
+      summary: Get workspace details
+      operationId: getWorkspace
+      tags:
+        - Workspaces
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Workspace details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Workspace'
+        '404':
+          description: Workspace not found
+
+    delete:
+      summary: Delete workspace
+      operationId: deleteWorkspace
+      tags:
+        - Workspaces
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '204':
+          description: Workspace deleted
+        '404':
+          description: Workspace not found
+
+  /api/workspaces/{id}/stats:
+    get:
+      summary: Get workspace resource usage
+      operationId: getWorkspaceStats
+      tags:
+        - Workspaces
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Resource statistics
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  cpu:
+                    type: number
+                  memory:
+                    type: number
+                  disk:
+                    type: number
+
+  /api/admin/users:
+    get:
+      summary: List all users (admin only)
+      operationId: listAllUsers
+      tags:
+        - Admin
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: List of users
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/User'
+        '403':
+          description: Admin access required
+
+  /api/admin/users/{id}:
+    patch:
+      summary: Update user (admin only)
+      operationId: updateUser
+      tags:
+        - Admin
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                role:
+                  type: string
+                  enum: [user, admin]
+                maxWorkspaces:
+                  type: integer
+                cpuLimit:
+                  type: number
+                memoryLimitMb:
+                  type: integer
+                suspended:
+                  type: boolean
+      responses:
+        '200':
+          description: User updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+        '403':
+          description: Admin access required
+
+components:
+  schemas:
+    User:
+      type: object
+      properties:
+        _id:
+          type: string
+        email:
+          type: string
+          format: email
+        name:
+          type: string
+        role:
+          type: string
+          enum: [user, admin]
+        plan:
+          type: string
+          enum: [free, pro, team]
+        maxWorkspaces:
+          type: integer
+        cpuLimit:
+          type: number
+        memoryLimitMb:
+          type: integer
+        suspended:
+          type: boolean
+        createdAt:
+          type: string
+          format: date-time
+
+    Workspace:
+      type: object
+      properties:
+        _id:
+          type: string
+        userId:
+          type: string
+        name:
+          type: string
+        image:
+          type: string
+        status:
+          type: string
+          enum: [pending, running, stopped, error]
+        containerId:
+          type: string
+        sshPort:
+          type: integer
+        repoUrl:
+          type: string
+          format: uri
+        createdAt:
+          type: string
+          format: date-time
+        lastActiveAt:
+          type: string
+          format: date-time
+
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+tags:
+  - name: Authentication
+    description: User registration and login
+  - name: Workspaces
+    description: Workspace management
+  - name: Admin
+    description: Admin-only operations
+  - name: System
+    description: System health and status

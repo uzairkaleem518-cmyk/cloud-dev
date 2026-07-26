@@ -1,0 +1,68 @@
+version: '3.8'
+
+services:
+  mongo:
+    image: mongo:7
+    restart: unless-stopped
+    ports:
+      - '27017:27017'
+    volumes:
+      - mongo-data:/data/db
+
+  # Privileged daemon - the ONLY service with docker.sock mounted. See
+  # orchestrator/README (docstring in server.js) and docs/gvisor-kata.md.
+  # This is "node 1" of a multi-node setup; add more orchestrator services
+  # (on other hosts, in their own compose files) and register them with
+  # `npm run register:host` in backend/ - see docs/multi-node.md.
+  orchestrator:
+    build:
+      context: ./orchestrator
+    restart: unless-stopped
+    ports:
+      - '5001:5001'
+    environment:
+      - ORCHESTRATOR_TOKEN=${ORCHESTRATOR_TOKEN:-change_this_secret}
+      - ORCHESTRATOR_PORT=5001
+      - ALLOWED_IMAGES=cloud-dev-node:latest,cloud-dev-python:latest,cloud-dev-base:latest
+      - WORKSPACE_NETWORK_NAME=cloud-dev-net
+      # Set to runsc or kata-runtime once installed on this host - see
+      # docs/gvisor-kata.md. Leave blank for default runc isolation.
+      - CONTAINER_RUNTIME=${CONTAINER_RUNTIME:-}
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+
+  backend:
+    build:
+      context: ./backend
+    restart: unless-stopped
+    ports:
+      - '4000:4000'
+    environment:
+      - MONGO_URI=mongodb://mongo:27017/cloud-dev-env
+      - JWT_SECRET=${JWT_SECRET:-change_this_secret}
+      - PORT=4000
+      - ALLOWED_IMAGES=cloud-dev-node:latest,cloud-dev-python:latest,cloud-dev-base:latest
+      # Set this to your server's public IP/hostname so VS Code Remote-SSH
+      # knows where to connect - localhost only works for local testing.
+      - SSH_HOST=${SSH_HOST:-localhost}
+      - APP_URL=${APP_URL:-http://localhost:5173}
+      - BACKEND_URL=${BACKEND_URL:-http://localhost:4000}
+      - GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID:-}
+      - GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET:-}
+      - GITHUB_CLIENT_ID=${GITHUB_CLIENT_ID:-}
+      - GITHUB_CLIENT_SECRET=${GITHUB_CLIENT_SECRET:-}
+      - STRIPE_SECRET_KEY=${STRIPE_SECRET_KEY:-}
+      - STRIPE_WEBHOOK_SECRET=${STRIPE_WEBHOOK_SECRET:-}
+      - STRIPE_PRICE_PRO=${STRIPE_PRICE_PRO:-}
+      - STRIPE_PRICE_TEAM=${STRIPE_PRICE_TEAM:-}
+    # NOTE: docker.sock is intentionally NOT mounted here anymore. The
+    # backend talks to the orchestrator service over HTTP/WS only - see
+    # orchestrator/ and backend/services/dockerService.js. After first
+    # `docker compose up`, run once:
+    #   docker compose exec backend npm run register:host -- primary http://orchestrator:5001 <ORCHESTRATOR_TOKEN>
+    depends_on:
+      - mongo
+      - orchestrator
+
+volumes:
+  mongo-data:

@@ -1,0 +1,107 @@
+groups:
+  - name: forge_alerts
+    interval: 30s
+    rules:
+      # Backend health
+      - alert: BackendDown
+        expr: up{job="backend"} == 0
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: Backend service is down
+          description: Backend has been unreachable for 2 minutes
+
+      - alert: BackendHighErrorRate
+        expr: rate(http_requests_total{job="backend",status=~"5.."}[5m]) > 0.05
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: Backend high error rate
+          description: Error rate is above 5% in last 5 minutes
+
+      - alert: BackendHighResponseTime
+        expr: histogram_quantile(0.99, rate(http_request_duration_seconds_bucket{job="backend"}[5m])) > 2
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: Backend slow response time
+          description: 99th percentile response time exceeds 2 seconds
+
+      # Orchestrator health
+      - alert: OrchestratorDown
+        expr: up{job="orchestrator"} == 0
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: Orchestrator service is down
+          description: Orchestrator has been unreachable for 2 minutes
+
+      - alert: OrchestratorHighMemory
+        expr: container_memory_usage_bytes{name="orchestrator"} / (1024*1024) > 512
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: Orchestrator high memory usage
+          description: Orchestrator memory exceeds 512MB
+
+      # MongoDB health
+      - alert: MongoDBDown
+        expr: up{job="mongodb"} == 0
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: MongoDB is down
+          description: Cannot connect to MongoDB
+
+      - alert: MongoDBHighConnections
+        expr: mongodb_connections{state="current"} > 80
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: MongoDB high connection count
+          description: Active connections exceeding 80
+
+      # Host system
+      - alert: HighCPUUsage
+        expr: 100 - (avg by (instance) (rate(node_cpu_seconds_total{mode="idle"}[5m])) * 100) > 80
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: High CPU usage
+          description: CPU usage exceeds 80%
+
+      - alert: HighMemoryUsage
+        expr: (1 - (node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes)) * 100 > 85
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: High memory usage
+          description: Memory usage exceeds 85%
+
+      - alert: LowDiskSpace
+        expr: (1 - (node_filesystem_avail_bytes{mountpoint="/"} / node_filesystem_size_bytes{mountpoint="/"})) * 100 > 80
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: Low disk space
+          description: Disk usage exceeds 80%
+
+      # Container issues
+      - alert: ContainerRestartLoop
+        expr: rate(container_last_seen{name=~".+"}[5m]) > 0.1
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: Container is restarting frequently
+          description: Container {{ $labels.name }} restarting too often

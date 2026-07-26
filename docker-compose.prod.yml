@@ -1,0 +1,65 @@
+version: '3.8'
+
+# Production docker-compose override
+# Usage: docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d
+
+services:
+  nginx:
+    image: nginx:alpine
+    restart: unless-stopped
+    ports:
+      - '80:80'
+      - '443:443'
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./certs:/etc/nginx/certs:ro
+      - nginx-cache:/var/cache/nginx
+    depends_on:
+      - backend
+    networks:
+      - prod-net
+
+  backend:
+    restart: always
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:4000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    environment:
+      - NODE_ENV=production
+      - LOG_LEVEL=info
+    networks:
+      - prod-net
+
+  orchestrator:
+    restart: always
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5001/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    networks:
+      - prod-net
+
+  mongo:
+    restart: always
+    healthcheck:
+      test: echo 'db.runCommand("ping").ok' | mongosh localhost:27017/test --quiet
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    volumes:
+      - mongo-data:/data/db
+      - mongo-backup:/data/backup
+
+networks:
+  prod-net:
+    driver: bridge
+
+volumes:
+  nginx-cache:
+  mongo-backup:
