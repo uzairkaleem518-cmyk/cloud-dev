@@ -3,3 +3,6 @@ orchestrator/node_modules/
 .env
 orchestrator/.env
 backend/.env
+
+frontend/node_modules/
+backend/node_modules/
