@@ -131,4 +131,29 @@ router.post('/onboarding/complete', requireAuth, async (req, res) => {
   }
 });
 
+// Password reset request - sends reset email (or logs it in dev)
+router.post('/password-reset-request', async (req, res) => {
+  try {
+    const { email } = req.body || {};
+    if (!email) {
+      return res.status(400).json({ error: 'email is required' });
+    }
+
+    // Don't reveal if email exists for security
+    const user = await User.findOne({ email: email.toLowerCase() });
+    
+    // Always return 200 to prevent user enumeration attacks
+    res.json({ message: 'If an account exists, a reset link has been sent' });
+
+    // Only send email if user exists
+    if (user) {
+      // In a real app, generate a token and send reset link
+      // For now, just log it
+      console.log(`[auth] password reset requested for ${email}`);
+    }
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 module.exports = router;

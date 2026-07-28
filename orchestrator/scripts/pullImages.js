@@ -19,7 +19,7 @@ const images = [
 
 for (const { tag, file } of images) {
   console.log(`\nBuilding ${tag} from ${file}...`);
-  execSync(`docker build -t ${tag} -f ${path.join(dockerDir, file)} ${dockerDir}`, {
+  execSync(`docker build -t ${tag} -f "${path.join(dockerDir, file)}" "${dockerDir}"`, {
     stdio: 'inherit',
   });
 }

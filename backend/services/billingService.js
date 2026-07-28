@@ -33,11 +33,14 @@ const processedWebhookIds = new Set();
 const WEBHOOK_ID_RETENTION_MS = 24 * 60 * 60 * 1000; // Keep IDs for 24 hours
 
 // Clean up old webhook IDs periodically
-setInterval(() => {
-  const now = Date.now();
-  // Note: In production, store this in Redis or a database instead of memory
-  console.log('[billing] webhook deduplication cleanup (note: in-memory only - use Redis in production)');
-}, WEBHOOK_ID_RETENTION_MS);
+// Note: In production, store this in Redis or a database instead of memory
+// Skip interval in test environment to avoid blocking Jest exit
+if (process.env.NODE_ENV !== 'test') {
+  setInterval(() => {
+    const now = Date.now();
+    console.log('[billing] webhook deduplication cleanup (note: in-memory only - use Redis in production)');
+  }, WEBHOOK_ID_RETENTION_MS);
+}
 
 function assertConfigured() {
   if (!stripe) {

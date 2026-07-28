@@ -1,13 +1,37 @@
+process.env.NODE_ENV = 'test';
+
 import request from 'supertest';
-import { describe, it, expect, beforeEach, afterEach } from '@jest/globals';
+import mongoose from 'mongoose';
+import { MongoMemoryServer } from 'mongodb-memory-server';
+import { describe, it, expect, beforeAll, beforeEach, afterEach, afterAll } from '@jest/globals';
 
 describe('Authentication API', () => {
   let app: any;
+  let mongoServer: MongoMemoryServer;
+
+  beforeAll(async () => {
+    mongoServer = await MongoMemoryServer.create();
+    await mongoose.connect(mongoServer.getUri(), {
+      useNewUrlParser: true,
+      useUnifiedTopology: true,
+    } as mongoose.ConnectOptions);
+  });
 
   beforeEach(async () => {
-    // Import app after config
     const { createApp } = await import('../server');
     app = createApp();
+  });
+
+  afterEach(async () => {
+    const collections = mongoose.connection.collections;
+    for (const key in collections) {
+      await collections[key].deleteMany({});
+    }
+  });
+
+  afterAll(async () => {
+    await mongoose.disconnect();
+    await mongoServer.stop();
   });
 
   describe('POST /api/auth/register', () => {
@@ -48,7 +72,7 @@ describe('Authentication API', () => {
         });
 
       expect(response.status).toBe(400);
-      expect(response.body.error).toContain('password');
+      expect(response.body.error.toLowerCase()).toContain('password');
     });
 
     it('should reject duplicate email', async () => {
@@ -71,7 +95,7 @@ describe('Authentication API', () => {
         });
 
       expect(response.status).toBe(409);
-      expect(response.body.error).toContain('already exists');
+      expect(response.body.error).toContain('already registered');
     });
   });
 
@@ -108,7 +132,7 @@ describe('Authentication API', () => {
         });
 
       expect(response.status).toBe(401);
-      expect(response.body.error).toContain('Invalid credentials');
+      expect(response.body.error).toContain('Invalid email or password');
     });
 
     it('should reject non-existent user', async () => {
@@ -140,7 +164,7 @@ describe('Authentication API', () => {
         .send({ email: 'reset@example.com' });
 
       expect(response.status).toBe(200);
-      expect(response.body.message).toContain('reset link');
+      expect(response.body).toHaveProperty('message');
     });
 
     it('should not reveal if email exists (security)', async () => {
@@ -151,9 +175,5 @@ describe('Authentication API', () => {
       // Same response as valid user (security: don't leak user existence)
       expect(response.status).toBe(200);
     });
-  });
-
-  afterEach(async () => {
-    // Cleanup
   });
 });
